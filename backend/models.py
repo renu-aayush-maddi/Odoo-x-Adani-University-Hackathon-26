@@ -42,10 +42,23 @@ class Equipment(Base):
     is_active = Column(Boolean, default=True)
     
     maintenance_team_id = Column(Integer, ForeignKey("teams.id"))
-    technician_id = Column(Integer, ForeignKey("users.id"))
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
+    # --- RELATIONSHIPS ---
     maintenance_team = relationship("MaintenanceTeam", back_populates="equipment")
+    technician = relationship("User") # <--- THIS WAS MISSING
     requests = relationship("MaintenanceRequest", back_populates="equipment")
+
+class WorkCenter(Base):
+    __tablename__ = "work_centers"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    code = Column(String, unique=True)
+    cost_per_hour = Column(Float, default=0.0)
+    capacity = Column(Float, default=100.0)
+    oee_target = Column(Float, default=85.0)
+    
+    requests = relationship("MaintenanceRequest", back_populates="work_center")
 
 class MaintenanceRequest(Base):
     __tablename__ = "requests"
@@ -53,18 +66,19 @@ class MaintenanceRequest(Base):
     subject = Column(String)
     request_type = Column(Enum(RequestType))
     stage = Column(Enum(RequestStage), default=RequestStage.NEW)
-    
-    # NEW FIELD: Priority (1-5 stars)
     priority = Column(Integer, default=1)
     
     scheduled_date = Column(DateTime, nullable=True)
     duration_hours = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    equipment_id = Column(Integer, ForeignKey("equipment.id"))
-    assigned_team_id = Column(Integer, ForeignKey("teams.id"))
+    equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
+    work_center_id = Column(Integer, ForeignKey("work_centers.id"), nullable=True) 
+    
+    assigned_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     equipment = relationship("Equipment", back_populates="requests")
+    work_center = relationship("WorkCenter", back_populates="requests")
     team = relationship("MaintenanceTeam")
     technician = relationship("User")

@@ -51,6 +51,12 @@ def seed_data():
     db.add_all([eq1, eq2, eq3])
     db.commit()
     
+    print("Seeding Work Centers...")
+    wc1 = models.WorkCenter(name="Assembly Line 1", code="WC-001", cost_per_hour=150.0, capacity=100.0, oee_target=90.0)
+    wc2 = models.WorkCenter(name="Drill Station", code="WC-002", cost_per_hour=85.0, capacity=50.0, oee_target=75.5)
+    db.add_all([wc1, wc2])
+    db.commit()
+    
     print("Seeding Initial Requests...")
     # Request 1: High Priority (3 Stars)
     req1 = models.MaintenanceRequest(
