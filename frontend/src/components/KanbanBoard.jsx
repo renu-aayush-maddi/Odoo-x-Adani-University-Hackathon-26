@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Title, Card, Text, Badge, Group, Avatar, ScrollArea, LoadingOverlay, Button } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks'; // <--- 1. Import Hook
 import { notifications } from '@mantine/notifications';
+import { useSearchParams } from 'react-router-dom';
+import { IconFilterOff, IconPlus } from '@tabler/icons-react'; // <--- 2. Import Icon
 import { api, endpoints } from '../api';
 import dayjs from 'dayjs';
-import { useSearchParams } from 'react-router-dom';
-import { IconFilterOff } from '@tabler/icons-react';
+
+// Import the Modal Component
+import { CreateRequestModal } from "../components/CreateRequestModal"
 
 const columns = {
   'New': { id: 'New', title: 'New Requests', color: 'blue' },
@@ -15,12 +19,13 @@ const columns = {
 };
 
 export function KanbanBoard() {
-  // 1. ALL HOOKS MUST BE HERE
+  // --- Hooks & State ---
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchParams, setSearchParams] = useSearchParams(); 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [opened, { open, close }] = useDisclosure(false); // <--- 3. Modal State
 
-  // 2. FILTER LOGIC MUST BE HERE 
+  // --- Filtering Logic ---
   const filterEquipmentId = searchParams.get('equipmentId');
 
   const displayedRequests = filterEquipmentId 
@@ -33,6 +38,7 @@ export function KanbanBoard() {
 
   const getColumnData = (stage) => displayedRequests.filter(r => r.stage === stage);
 
+  // --- Data Fetching ---
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -48,6 +54,7 @@ export function KanbanBoard() {
     }
   };
 
+  // --- Drag & Drop Logic ---
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
 
@@ -74,34 +81,48 @@ export function KanbanBoard() {
 
   return (
     <div style={{ height: 'calc(100vh - 100px)' }}>
-      <Group justify="space-between" mb="md">
-        <Title order={2}>Maintenance Board</Title>
-        
-        {/* Filter Banner */}
-        {filterEquipmentId && (
-          <Card withBorder shadow="sm" radius="md" padding="xs" bg="blue.0">
-            <Group justify="space-between">
-              <Text size="sm" c="blue.9" fw={500}>
-                Filtering by Equipment ID: {filterEquipmentId}
-              </Text>
-              <Button 
-                variant="subtle" 
-                color="red" 
-                size="xs" 
-                leftSection={<IconFilterOff size={14}/>}
-                onClick={clearFilter}
-              >
-                Clear Filter
-              </Button>
-            </Group>
-          </Card>
-        )}
+      {/* --- HEADER SECTION --- */}
+      <Group justify="space-between" mb="md" align="center">
+        <Group>
+          <Title order={2}>Maintenance Board</Title>
+          <Button leftSection={<IconPlus size={16} />} onClick={open} size="sm">
+            New Request
+          </Button>
+        </Group>
 
-        <Button onClick={fetchRequests} variant="light">Refresh</Button>
+        <Button onClick={fetchRequests} variant="light" size="sm">Refresh</Button>
       </Group>
 
+      {/* --- FILTER BANNER --- */}
+      {filterEquipmentId && (
+        <Card withBorder shadow="sm" radius="md" padding="xs" mb="md" bg="blue.0">
+          <Group justify="space-between">
+            <Text size="sm" c="blue.9" fw={500}>
+              Filtering by Equipment ID: {filterEquipmentId}
+            </Text>
+            <Button 
+              variant="subtle" 
+              color="red" 
+              size="xs" 
+              leftSection={<IconFilterOff size={14}/>}
+              onClick={clearFilter}
+            >
+              Clear Filter
+            </Button>
+          </Group>
+        </Card>
+      )}
+
+      {/* --- MODAL --- */}
+      <CreateRequestModal 
+        opened={opened} 
+        close={close} 
+        onSuccess={fetchRequests} 
+      />
+
+      {/* --- KANBAN COLUMNS --- */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div style={{ display: 'flex', gap: '16px', height: '100%', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: '16px', height: '100%', overflowX: 'auto', paddingBottom: 10 }}>
           {Object.values(columns).map(col => (
             <div key={col.id} style={{ minWidth: 300, width: 350, display: 'flex', flexDirection: 'column' }}>
               
@@ -122,6 +143,7 @@ export function KanbanBoard() {
                     {...provided.droppableProps}
                   >
                     {getColumnData(col.id).map((req, index) => {
+                      // Overdue Logic
                       const isOverdue = req.scheduled_date && dayjs(req.scheduled_date).isBefore(dayjs()) && req.stage !== 'Repaired';
                       
                       return (
@@ -147,7 +169,7 @@ export function KanbanBoard() {
                               </Group>
 
                               <Text size="xs" c="dimmed" mb="xs">
-                                {req.equipment.name} • {req.team.name}
+                                {req.equipment ? req.equipment.name : 'Unknown Eq'} • {req.team ? req.team.name : 'No Team'}
                               </Text>
 
                               <Group justify="space-between" mt="md">
