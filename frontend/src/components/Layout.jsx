@@ -1,6 +1,6 @@
 import { AppShell, Burger, Group, NavLink, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconTool, IconUsers, IconSettings, IconLayoutKanban } from '@tabler/icons-react';
+import { IconTool, IconUsers, IconSettings, IconLayoutKanban,  IconCalendar } from '@tabler/icons-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 
 export function Layout() {
@@ -10,6 +10,7 @@ export function Layout() {
 
   const links = [
     { label: 'Maintenance Board', icon: IconLayoutKanban, link: '/' },
+    { label: 'Calendar', icon: IconCalendar, link: '/calendar' },
     { label: 'Equipment', icon: IconTool, link: '/equipment' },
     { label: 'Teams', icon: IconUsers, link: '/teams' },
   ];

@@ -47,6 +47,8 @@ def read_requests(db: Session = Depends(database.get_db)):
         joinedload(models.MaintenanceRequest.technician)
     ).all()
 
+
+
 @app.get("/equipment/")
 def read_equipment(db: Session = Depends(database.get_db)):
     return db.query(models.Equipment).all()
@@ -57,18 +59,27 @@ def read_teams(db: Session = Depends(database.get_db)):
 
 # B. Write Operations (Business Logic)
 
+
 @app.post("/requests/")
 def create_request(request: RequestCreate, db: Session = Depends(database.get_db)):
     # 1. Fetch Equipment details
     equipment = db.query(models.Equipment).filter(models.Equipment.id == request.equipment_id).first()
     if not equipment:
         raise HTTPException(status_code=404, detail="Equipment not found")
-
+        
+    # 2. AUTO-FILL LOGIC: Fetch Team from Equipment
     auto_assigned_team = equipment.maintenance_team_id
     
+    # 3. Create the request
+    # FIX: Explicitly convert the string to the Enum object for Postgres safety
+    try:
+        req_type_enum = models.RequestType(request.request_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid request type: {request.request_type}")
+
     new_req = models.MaintenanceRequest(
         subject=request.subject,
-        request_type=request.request_type,
+        request_type=req_type_enum, # <--- Passing the Enum Object, not string
         equipment_id=request.equipment_id,
         assigned_team_id=auto_assigned_team,
         scheduled_date=request.scheduled_date,

@@ -34,21 +34,36 @@ export function CreateRequestModal({ opened, close, onSuccess }) {
     });
   }, []);
 
-  const handleSubmit = async (values) => {
+const handleSubmit = async (values) => {
     try {
+      // FIX: Safely handle the date. 
+      // If it is already a string, use it. If it is a Date object, convert it.
+      let finalDate = null;
+      if (values.scheduled_date) {
+        finalDate = values.scheduled_date instanceof Date 
+          ? values.scheduled_date.toISOString() 
+          : values.scheduled_date; // It's already a string, just pass it
+      }
+
+      console.log("Sending Payload:", { ...values, scheduled_date: finalDate });
+
       await api.post(endpoints.requests, {
         ...values,
         equipment_id: parseInt(values.equipment_id),
-        // Send date only if it exists (for Preventive)
-        scheduled_date: values.scheduled_date ? values.scheduled_date.toISOString() : null,
+        scheduled_date: finalDate, // <--- Use the safe variable
       });
 
       notifications.show({ title: 'Success', message: 'Request created!', color: 'green' });
       form.reset();
-      onSuccess(); // Refresh the parent board
+      onSuccess();
       close();
     } catch (error) {
-      notifications.show({ title: 'Error', message: 'Failed to create request', color: 'red' });
+      console.error("API Error:", error);
+      notifications.show({ 
+        title: 'Error', 
+        message: error.response?.data?.detail || 'Failed to create request', 
+        color: 'red' 
+      });
     }
   };
 
