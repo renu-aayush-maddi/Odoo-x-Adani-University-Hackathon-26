@@ -1,48 +1,80 @@
-
 import { useEffect, useState } from 'react';
-import { Grid, Card, Title, Text, Group, Table, Badge, Paper, TextInput, Button } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks'; // <--- Import this
+import { Grid, Title, Text, Group, Table, Badge, Paper, TextInput, Button, LoadingOverlay, Box } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { IconSearch, IconPlus } from '@tabler/icons-react';
 import { api, endpoints } from '../api';
-import dayjs from 'dayjs';
 import { RequestDetailsDrawer } from './RequestDetailsDrawer'; 
-import { CreateRequestModal } from './CreateRequestModal'; // <--- Import the Modal
+import { CreateRequestModal } from './CreateRequestModal';
 
 export function Dashboard() {
-  const [stats, setStats] = useState({ total: 0, open: 0, critical: 0, load: 0 });
+  // 1. Updated state to hold counts for ALL 4 stages
+  const [stats, setStats] = useState({ 
+    total: 0, 
+    critical: 0, 
+    load: 0, 
+    breakdown: { new: 0, inProgress: 0, repaired: 0, scrap: 0 } 
+  });
+  
   const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState('');
-  
+  const [loading, setLoading] = useState(true);
+
   // Drawer State
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Create Modal State
-  const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false); // <--- Hook
+  const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const res = await api.get(endpoints.requests);
-      const reqs = res.data;
+      const [reqRes, userRes] = await Promise.all([
+          api.get(endpoints.requests),
+          api.get(endpoints.users)
+      ]);
+      
+      const reqs = reqRes.data;
+      const technicians = userRes.data;
+
       setRequests(reqs);
 
-      // --- CALCULATE KPI MOCK DATA ---
+      // --- DYNAMIC CALCULATIONS ---
       const criticalCount = reqs.filter(r => r.priority === 3).length; 
-      const openCount = reqs.filter(r => r.stage !== 'Repaired' && r.stage !== 'Scrap').length;
-      const loadPercentage = 85; 
+      
+      // 2. Calculate counts for ALL statuses
+      const newCount = reqs.filter(r => r.stage === 'New').length;
+      const inProgressCount = reqs.filter(r => r.stage === 'In Progress').length;
+      const repairedCount = reqs.filter(r => r.stage === 'Repaired').length;
+      const scrapCount = reqs.filter(r => r.stage === 'Scrap').length;
+
+      const activeTasks = newCount + inProgressCount;
+      const totalTechs = technicians.length || 1; 
+      const maxCapacity = totalTechs * 3; 
+      
+      let loadPercentage = Math.round((activeTasks / maxCapacity) * 100);
+      if (loadPercentage > 100) loadPercentage = 100; 
 
       setStats({
-        critical: criticalCount + 2, 
+        total: reqs.length, // Store total count
+        critical: criticalCount, 
         load: loadPercentage,
-        open: openCount
+        breakdown: {       
+            new: newCount,
+            inProgress: inProgressCount,
+            repaired: repairedCount,
+            scrap: scrapCount
+        }
       });
 
     } catch (error) {
       console.error("Failed to fetch dashboard data");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,9 +88,21 @@ export function Dashboard() {
     r.equipment?.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getStageColor = (stage) => {
+      switch (stage) {
+          case 'New': return 'blue';
+          case 'In Progress': return 'orange';
+          case 'Repaired': return 'green';
+          case 'Scrap': return 'red';
+          default: return 'gray';
+      }
+  };
+
   return (
-    <div>
-      {/* 1. TOP BAR with "New" Button Working */}
+    <Box pos="relative">
+      <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
+      
+      {/* 1. TOP BAR */}
       <Group justify="space-between" mb="lg">
          <Button 
             leftSection={<IconPlus size={16}/>} 
@@ -66,7 +110,7 @@ export function Dashboard() {
             color="dark" 
             radius="md" 
             style={{ border: '2px solid #333' }}
-            onClick={openCreate} // <--- CLICK HANDLER
+            onClick={openCreate} 
          >
             New
          </Button>
@@ -99,15 +143,31 @@ export function Dashboard() {
         </Grid.Col>
 
         <Grid.Col span={4}>
+          {/* 3. CHANGED: Request Summary Card */}
           <Paper p="lg" radius="md" withBorder style={{ backgroundColor: '#ebfbee', borderColor: '#b2f2bb', textAlign: 'center' }}>
-             <Text c="green" fw={500} mb="xs">Open Requests</Text>
-             <Text size="xl" fw={700} c="green">{stats.open} Pending</Text>
-             <Text size="xs" c="green.6">3 Overdue</Text>
+             <Text c="green" fw={500} mb="xs">Request Summary</Text>
+             <Text size="xl" fw={700} c="green" mb={8}>{stats.total} Total</Text>
+             
+             {/* Dynamic Badges for ALL 4 Statuses */}
+             <Group justify="center" gap={6} style={{ rowGap: '8px' }}>
+                <Badge variant="dot" color="blue" size="sm">
+                    {stats.breakdown.new} New
+                </Badge>
+                <Badge variant="dot" color="orange" size="sm">
+                    {stats.breakdown.inProgress} In Prog
+                </Badge>
+                <Badge variant="dot" color="green" size="sm">
+                    {stats.breakdown.repaired} Fixed
+                </Badge>
+                <Badge variant="dot" color="red" size="sm">
+                    {stats.breakdown.scrap} Scrap
+                </Badge>
+             </Group>
           </Paper>
         </Grid.Col>
       </Grid>
 
-      {/* 3. LIST VIEW */}
+      {/* 3. LIST VIEW TABLE */}
       <Paper shadow="sm" radius="md" withBorder>
         <Table stickyHeader striped highlightOnHover>
           <Table.Thead style={{ borderBottom: '2px dashed #ccc' }}>
@@ -128,7 +188,7 @@ export function Dashboard() {
                   <Table.Td>{req.technician?.name || 'Unassigned'}</Table.Td>
                   <Table.Td>{req.equipment?.category || 'Machinery'}</Table.Td>
                   <Table.Td>
-                      <Badge variant="light" color={req.stage === 'New' ? 'blue' : req.stage === 'In Progress' ? 'orange' : 'green'}>
+                      <Badge variant="light" color={getStageColor(req.stage)}>
                         {req.stage}
                       </Badge>
                   </Table.Td>
@@ -144,13 +204,14 @@ export function Dashboard() {
         opened={drawerOpen} 
         onClose={() => setDrawerOpen(false)} 
         request={selectedRequest} 
+        onUpdate={fetchData} 
       />
 
       <CreateRequestModal 
         opened={createOpened} 
         close={closeCreate} 
-        onSuccess={fetchData} // Refresh dashboard after create
+        onSuccess={fetchData} 
       />
-    </div>
+    </Box>
   );
 }
