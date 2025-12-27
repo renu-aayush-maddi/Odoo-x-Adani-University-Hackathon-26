@@ -80,6 +80,29 @@ class UserResponse(BaseModel):
         orm_mode = True
         
         
+# --- NEW SCHEMAS FOR TEAMS & WORK CENTERS ---
+
+class TeamCreate(BaseModel):
+    name: str
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    member_ids: Optional[List[int]] = None # This handles adding/removing members
+
+class WorkCenterCreate(BaseModel):
+    name: str
+    code: str
+    cost_per_hour: float
+    capacity: float
+    oee_target: float
+
+class WorkCenterUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    cost_per_hour: Optional[float] = None
+    capacity: Optional[float] = None
+    oee_target: Optional[float] = None
+        
 
 def validate_password_strength(password: str) -> bool:
     if len(password) <= 8: return False
@@ -254,3 +277,96 @@ def get_equipment_stats(equipment_id: int, db: Session = Depends(database.get_db
         models.MaintenanceRequest.stage != models.RequestStage.SCRAP
     ).count()
     return {"open_requests": count}
+
+
+# --- TEAMS CRUD ---
+
+@app.post("/teams/", response_model=None)
+def create_team(team: TeamCreate, db: Session = Depends(database.get_db)):
+    db_team = models.MaintenanceTeam(name=team.name)
+    db.add(db_team)
+    db.commit()
+    db.refresh(db_team)
+    return db_team
+
+@app.put("/teams/{team_id}")
+def update_team(team_id: int, team_data: TeamUpdate, db: Session = Depends(database.get_db)):
+    db_team = db.query(models.MaintenanceTeam).filter(models.MaintenanceTeam.id == team_id).first()
+    if not db_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    if team_data.name:
+        db_team.name = team_data.name
+        
+    # --- LOGIC TO ADD/REMOVE MEMBERS ---
+    if team_data.member_ids is not None:
+        # 1. Clear existing members (optional: depends if you want to wipe previous list)
+        # For a pure "set this list" approach:
+        current_members = db.query(models.User).filter(models.User.team_id == team_id).all()
+        for member in current_members:
+            member.team_id = None # Unassign them first
+            
+        # 2. Assign new members
+        if team_data.member_ids:
+            users_to_add = db.query(models.User).filter(models.User.id.in_(team_data.member_ids)).all()
+            for user in users_to_add:
+                user.team_id = team_id
+
+    db.commit()
+    db.refresh(db_team)
+    # Return with members loaded so frontend updates immediately
+    return db.query(models.MaintenanceTeam).options(joinedload(models.MaintenanceTeam.members)).filter(models.MaintenanceTeam.id == team_id).first()
+
+@app.delete("/teams/{team_id}")
+def delete_team(team_id: int, db: Session = Depends(database.get_db)):
+    # 1. Check if team exists
+    team = db.query(models.MaintenanceTeam).filter(models.MaintenanceTeam.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # 2. Unassign Members (Fixes the ForeignKeyViolation error)
+    # We use .update() to set team_id to NULL for all users in this team
+    db.query(models.User).filter(models.User.team_id == team_id).update({"team_id": None})
+
+    # 3. Unassign Equipment (Prevent potential future errors)
+    # If any equipment is assigned to this team, unassign it too
+    db.query(models.Equipment).filter(models.Equipment.maintenance_team_id == team_id).update({"maintenance_team_id": None})
+    
+    # 4. Unassign Requests (Optional but recommended)
+    # If any active requests are assigned to this team, unassign them
+    db.query(models.MaintenanceRequest).filter(models.MaintenanceRequest.assigned_team_id == team_id).update({"assigned_team_id": None})
+
+    # 5. Now it is safe to delete the team
+    db.query(models.MaintenanceTeam).filter(models.MaintenanceTeam.id == team_id).delete()
+    
+    db.commit()
+    return {"message": "Team deleted successfully"}
+
+# --- WORK CENTERS CRUD ---
+
+@app.post("/work-centers/")
+def create_work_center(wc: WorkCenterCreate, db: Session = Depends(database.get_db)):
+    new_wc = models.WorkCenter(**wc.dict())
+    db.add(new_wc)
+    db.commit()
+    db.refresh(new_wc)
+    return new_wc
+
+@app.put("/work-centers/{wc_id}")
+def update_work_center(wc_id: int, wc_data: WorkCenterUpdate, db: Session = Depends(database.get_db)):
+    db_wc = db.query(models.WorkCenter).filter(models.WorkCenter.id == wc_id).first()
+    if not db_wc:
+        raise HTTPException(404, "Work Center not found")
+    
+    for key, value in wc_data.dict(exclude_unset=True).items():
+        setattr(db_wc, key, value)
+        
+    db.commit()
+    db.refresh(db_wc)
+    return db_wc
+
+@app.delete("/work-centers/{wc_id}")
+def delete_work_center(wc_id: int, db: Session = Depends(database.get_db)):
+    db.query(models.WorkCenter).filter(models.WorkCenter.id == wc_id).delete()
+    db.commit()
+    return {"message": "Work Center deleted"}
