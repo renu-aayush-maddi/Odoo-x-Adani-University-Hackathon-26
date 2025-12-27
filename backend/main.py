@@ -4,9 +4,10 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from . import models, database
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
+import re
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -33,6 +34,7 @@ class RequestCreate(BaseModel):
     technician_id: Optional[int] = None
     team_id: Optional[int] = None  # User selected team
     duration: Optional[float] = 0.0
+    created_by_id: Optional[int] = None
 
 # --- UPDATE THE SCHEMA ---
 class RequestUpdate(BaseModel):
@@ -44,6 +46,7 @@ class RequestUpdate(BaseModel):
     notes: Optional[str] = None
     instructions: Optional[str] = None
     worksheet_log: Optional[str] = None
+    kanban_state: Optional[str] = None
 
 class EquipmentSchema(BaseModel):
     name: str
@@ -56,13 +59,77 @@ class EquipmentSchema(BaseModel):
 
 # --- ENDPOINTS ---
 
+
+# --- AUTH SCHEMAS ---
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserSignup(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    user_type: str
+
+    class Config:
+        orm_mode = True
+        
+        
+
+def validate_password_strength(password: str) -> bool:
+    if len(password) <= 8: return False
+    if not re.search(r"[a-z]", password): return False
+    if not re.search(r"[A-Z]", password): return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): return False
+    return True
+
+@app.post("/login", response_model=UserResponse)
+def login(user_data: UserLogin, db: Session = Depends(database.get_db)):
+    user = db.query(models.User).filter(models.User.email == user_data.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Account not exist")
+    
+    if user.password_hash != user_data.password:
+        raise HTTPException(status_code=401, detail="Invalid Password")
+        
+    return user
+
+@app.post("/signup", status_code=201)
+def signup(user_data: UserSignup, db: Session = Depends(database.get_db)):
+    existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Email Id should not be a duplicate in database")
+    
+    if not validate_password_strength(user_data.password):
+        raise HTTPException(
+            status_code=400, 
+            detail="Password must contain a small case, a large case, a special character and length should be in more then 8 charachters."
+        )
+
+    new_user = models.User(
+        name=user_data.name,
+        email=user_data.email,
+        password_hash=user_data.password,
+        user_type="portal"
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "Account created successfully"}
+
 @app.get("/requests/")
 def read_requests(db: Session = Depends(database.get_db)):
     return db.query(models.MaintenanceRequest).options(
         joinedload(models.MaintenanceRequest.equipment),
         joinedload(models.MaintenanceRequest.work_center),
         joinedload(models.MaintenanceRequest.team),
-        joinedload(models.MaintenanceRequest.technician)
+        joinedload(models.MaintenanceRequest.technician),
+        joinedload(models.MaintenanceRequest.created_by)
     ).all()
 
 @app.get("/equipment/")
@@ -110,7 +177,8 @@ def create_request(request: RequestCreate, db: Session = Depends(database.get_db
         scheduled_date=request.scheduled_date,
         duration_hours=request.duration, # Save the duration
         stage=models.RequestStage.NEW,
-        priority=request.priority
+        priority=request.priority,
+        created_by_id=request.created_by_id
     )
     
     db.add(new_req)
@@ -128,6 +196,7 @@ def update_stage(request_id: int, update_data: RequestUpdate, db: Session = Depe
     if update_data.duration_hours is not None: req.duration_hours = update_data.duration_hours
     if update_data.technician_id: req.technician_id = update_data.technician_id
     if update_data.priority: req.priority = update_data.priority
+    if update_data.kanban_state: req.kanban_state = update_data.kanban_state # <--- SAVE IT
     
     # --- SAVE NEW FIELDS ---
     if update_data.notes is not None: req.notes = update_data.notes

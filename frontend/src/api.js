@@ -1,3 +1,21 @@
+// import axios from 'axios';
+
+// const API_URL = 'http://localhost:8000';
+
+// export const api = axios.create({
+//   baseURL: API_URL,
+// });
+
+// export const endpoints = {
+//   teams: '/teams/',
+//   users: '/users/',
+//   equipment: '/equipment/',
+//   requests: '/requests/',
+//   updateStage: (id, data) => api.put(`/requests/${id}/stage`, data),
+//   equipmentStats: (id) => api.get(`/equipment/${id}/stats`),
+// };
+
+
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8000';
@@ -7,6 +25,11 @@ export const api = axios.create({
 });
 
 export const endpoints = {
+  // Auth Endpoints
+  login: (data) => api.post('/login', data),
+  signup: (data) => api.post('/signup', data),
+
+  // Existing Endpoints
   teams: '/teams/',
   users: '/users/',
   equipment: '/equipment/',
