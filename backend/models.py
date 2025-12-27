@@ -60,6 +60,10 @@ class WorkCenter(Base):
     
     requests = relationship("MaintenanceRequest", back_populates="work_center")
 
+# ... (imports remain the same)
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Enum, Boolean, Text # <--- Add Text
+# ... (Other classes remain the same)
+
 class MaintenanceRequest(Base):
     __tablename__ = "requests"
     id = Column(Integer, primary_key=True, index=True)
@@ -72,6 +76,12 @@ class MaintenanceRequest(Base):
     duration_hours = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # --- NEW FIELDS FOR PERSISTENCE ---
+    notes = Column(Text, nullable=True)          # <--- Stores internal notes
+    instructions = Column(Text, nullable=True)   # <--- Stores safety instructions
+    worksheet_log = Column(Text, nullable=True)  # <--- Stores the worksheet text
+    # ----------------------------------
+
     equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
     work_center_id = Column(Integer, ForeignKey("work_centers.id"), nullable=True) 
     
