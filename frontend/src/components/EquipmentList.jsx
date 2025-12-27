@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Table, Title, Button, Drawer, Group, Text, Badge, ActionIcon, Stack, Grid, ThemeIcon } from '@mantine/core';
+import { Table, Title, Button, Drawer, Group, Text, Badge, ActionIcon, Stack, Grid, ThemeIcon, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconEye, IconTool, IconBuildingFactory } from '@tabler/icons-react';
+import { IconEye, IconTool, IconBuildingFactory, IconSearch } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api, endpoints } from '../api';
 import dayjs from 'dayjs';
 
 export function EquipmentList() {
   const [equipment, setEquipment] = useState([]);
+  const [search, setSearch] = useState(''); // <--- State for Search
   const [selectedItem, setSelectedItem] = useState(null);
   const [requestCount, setRequestCount] = useState(0);
   const [opened, { open, close }] = useDisclosure(false);
@@ -17,7 +18,6 @@ export function EquipmentList() {
     api.get(endpoints.equipment).then(res => setEquipment(res.data));
   }, []);
 
-  // When opening details, fetch the "Smart Button" count
   const handleViewDetails = async (item) => {
     setSelectedItem(item);
     try {
@@ -29,16 +29,19 @@ export function EquipmentList() {
     }
   };
 
-  // The Smart Button Action: Go to Kanban filtered by this machine
   const navigateToMaintenance = () => {
     navigate(`/?equipmentId=${selectedItem.id}`);
   };
 
-  const rows = equipment.map((item) => {
-    // --- SCRAP LOGIC VISUALS ---
-    // If is_active is false (0), the machine is Scrapped.
-    const isScrapped = !item.is_active; 
+  // --- SEARCH LOGIC ---
+  const filteredEquipment = equipment.filter(item => 
+    item.name.toLowerCase().includes(search.toLowerCase()) || 
+    item.serial_number.toLowerCase().includes(search.toLowerCase()) ||
+    item.department.toLowerCase().includes(search.toLowerCase())
+  );
 
+  const rows = filteredEquipment.map((item) => {
+    const isScrapped = !item.is_active; 
     return (
       <Table.Tr 
         key={item.id} 
@@ -65,7 +68,17 @@ export function EquipmentList() {
 
   return (
     <div>
-      <Title order={2} mb="md">Equipment Assets</Title>
+      <Group justify="space-between" mb="md">
+        <Title order={2}>Equipment Assets</Title>
+        {/* SEARCH BAR INPUT */}
+        <TextInput 
+          placeholder="Search by name, serial, or dept..." 
+          leftSection={<IconSearch size={14} />}
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+          style={{ width: 300 }}
+        />
+      </Group>
       
       <Table stickyHeader striped highlightOnHover withTableBorder>
         <Table.Thead>
@@ -77,10 +90,18 @@ export function EquipmentList() {
             <Table.Th>Action</Table.Th>
           </Table.Tr>
         </Table.Thead>
-        <Table.Tbody>{rows}</Table.Tbody>
+        <Table.Tbody>
+            {rows.length > 0 ? rows : (
+                <Table.Tr>
+                    <Table.Td colSpan={5}>
+                        <Text c="dimmed" ta="center">No equipment found</Text>
+                    </Table.Td>
+                </Table.Tr>
+            )}
+        </Table.Tbody>
       </Table>
 
-      {/* The "Equipment Form" Drawer */}
+      {/* Drawer Details (Same as before) */}
       <Drawer 
         opened={opened} 
         onClose={close} 
@@ -90,23 +111,17 @@ export function EquipmentList() {
       >
         {selectedItem && (
           <Stack gap="lg">
-            {/* --- THE SMART BUTTON  --- */}
             <Button 
               fullWidth 
               size="lg" 
               variant="light" 
               color="blue"
               leftSection={<IconTool />}
-              rightSection={
-                <Badge color="blue" variant="filled" circle>
-                  {requestCount}
-                </Badge>
-              }
+              rightSection={<Badge color="blue" variant="filled" circle>{requestCount}</Badge>}
               onClick={navigateToMaintenance}
             >
               Maintenance Requests
             </Button>
-            {/* ------------------------- */}
 
             {!selectedItem.is_active && (
                 <Badge color="red" size="xl" fullWidth>⚠️ EQUIPMENT SCRAPPED</Badge>

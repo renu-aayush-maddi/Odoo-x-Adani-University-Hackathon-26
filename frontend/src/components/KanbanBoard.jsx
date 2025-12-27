@@ -1,13 +1,14 @@
 
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Title, Card, Text, Badge, Group, Avatar, ScrollArea, LoadingOverlay, Button, Select, Modal, NumberInput } from '@mantine/core';
+import { Title, Card, Text, Badge, Group, Avatar, ScrollArea, LoadingOverlay, Button, Select, Modal, NumberInput, Rating } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useSearchParams } from 'react-router-dom';
 import { IconFilterOff, IconPlus } from '@tabler/icons-react';
 import { api, endpoints } from '../api';
 import dayjs from 'dayjs';
+
 
 // Import the Modal Component
 import { CreateRequestModal } from './CreateRequestModal';
@@ -228,6 +229,11 @@ export function KanbanBoard() {
                                 <Text fw={600} size="sm" lineClamp={2}>{req.subject}</Text>
                                 {isOverdue && <Badge color="red" size="xs">Overdue</Badge>}
                               </Group>
+
+                              <Group gap="xs" mb="xs">
+                                <Text size="xs" c="dimmed">Priority:</Text>
+                                   <Rating value={req.priority || 1} readOnly size="xs" count={5} /> 
+                                </Group>
 
                               <Text size="xs" c="dimmed" mb="xs">
                                 {req.equipment ? req.equipment.name : 'Unknown Eq'} • {req.team ? req.team.name : 'No Team'}
