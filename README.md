@@ -10,6 +10,9 @@
 
 ## 📖 Overview
 
+
+Live at :-https://chipper-snickerdoodle-da3d9a.netlify.app/login
+
 **GearGuard** is a full-stack Industrial Maintenance Management System (CMMS) designed to replace chaotic spreadsheets with a centralized, reactive, and preventive workflow. 
 
 Built for the **SWAVLAMBAN 2025 Hackathon**, this solution focuses on tracking critical equipment health, managing technician workloads, and ensuring zero downtime through intelligent scheduling.
@@ -95,3 +98,21 @@ pip install fastapi uvicorn sqlalchemy python-dotenv psycopg2-binary
 pip install python-dotenv
 
 npm install react-big-calendar date-fns -->
+
+
+
+
+The API will start at http://localhost:8000
+
+2. Frontend Setup
+Bash
+
+# Navigate to frontend folder
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run the development server
+npm run dev
+The App will start at http://localhost:5173
