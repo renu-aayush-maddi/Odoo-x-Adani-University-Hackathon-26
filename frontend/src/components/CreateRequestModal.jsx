@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Modal, TextInput, Select, Button, Group, Stack } from '@mantine/core';
+import { Modal, TextInput, Select, Button, Group, Stack, Rating, Text } from '@mantine/core'; // Added Rating, Text
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { api, endpoints } from '../api';
 
-export function CreateRequestModal({ opened, close, onSuccess }) {
+export function CreateRequestModal({ opened, close, onSuccess, initialDate }) {
   const [equipmentList, setEquipmentList] = useState([]);
 
-  // Form state management
   const form = useForm({
     initialValues: {
       subject: '',
       equipment_id: '',
-      request_type: 'Corrective', // Default to breakdown
+      request_type: 'Corrective',
       scheduled_date: null,
+      priority: 1, // Default priority
     },
     validate: {
       subject: (value) => (value.length < 2 ? 'Subject is too short' : null),
@@ -22,10 +22,19 @@ export function CreateRequestModal({ opened, close, onSuccess }) {
     },
   });
 
-  // Fetch equipment list for the dropdown
+  // Watch for initialDate changes (Calendar Click)
+  useEffect(() => {
+    if (opened && initialDate) {
+        form.setValues({
+            request_type: 'Preventive',
+            scheduled_date: initialDate,
+            priority: 2 // Default to 2 stars for scheduled work
+        });
+    }
+  }, [initialDate, opened]);
+
   useEffect(() => {
     api.get(endpoints.equipment).then((res) => {
-      // Format for Mantine Select: { value: '1', label: 'Name' }
       const data = res.data.map((item) => ({
         value: item.id.toString(),
         label: `${item.name} (${item.serial_number})`,
@@ -34,23 +43,20 @@ export function CreateRequestModal({ opened, close, onSuccess }) {
     });
   }, []);
 
-const handleSubmit = async (values) => {
+  const handleSubmit = async (values) => {
     try {
-      // FIX: Safely handle the date. 
-      // If it is already a string, use it. If it is a Date object, convert it.
       let finalDate = null;
       if (values.scheduled_date) {
         finalDate = values.scheduled_date instanceof Date 
           ? values.scheduled_date.toISOString() 
-          : values.scheduled_date; // It's already a string, just pass it
+          : values.scheduled_date;
       }
-
-      console.log("Sending Payload:", { ...values, scheduled_date: finalDate });
 
       await api.post(endpoints.requests, {
         ...values,
         equipment_id: parseInt(values.equipment_id),
-        scheduled_date: finalDate, // <--- Use the safe variable
+        scheduled_date: finalDate,
+        priority: values.priority, // Send Priority
       });
 
       notifications.show({ title: 'Success', message: 'Request created!', color: 'green' });
@@ -58,12 +64,7 @@ const handleSubmit = async (values) => {
       onSuccess();
       close();
     } catch (error) {
-      console.error("API Error:", error);
-      notifications.show({ 
-        title: 'Error', 
-        message: error.response?.data?.detail || 'Failed to create request', 
-        color: 'red' 
-      });
+      notifications.show({ title: 'Error', message: 'Failed to create request', color: 'red' });
     }
   };
 
@@ -93,7 +94,6 @@ const handleSubmit = async (values) => {
             {...form.getInputProps('request_type')}
           />
 
-          {/* Only show Date Picker for Preventive requests [cite: 48] */}
           {form.values.request_type === 'Preventive' && (
             <DateInput
               label="Scheduled Date"
@@ -103,6 +103,15 @@ const handleSubmit = async (values) => {
               {...form.getInputProps('scheduled_date')}
             />
           )}
+
+          {/* PRIORITY STARS */}
+          <div>
+            <Text size="sm" fw={500} mb={3}>Priority</Text>
+            <Rating 
+                {...form.getInputProps('priority')} 
+                size="lg"
+            />
+          </div>
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={close}>Cancel</Button>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Title, Button, Drawer, Group, Text, Badge, ActionIcon, Stack, Grid, ThemeIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconEye, IconTool, IconBuildingFactory, IconCalendarStats } from '@tabler/icons-react';
+import { IconEye, IconTool, IconBuildingFactory } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api, endpoints } from '../api';
 import dayjs from 'dayjs';
@@ -33,21 +33,35 @@ export function EquipmentList() {
   const navigateToMaintenance = () => {
     navigate(`/?equipmentId=${selectedItem.id}`);
   };
-  const isScrapped = !item.is_active;
 
-  const rows = equipment.map((item) => (
-    <Table.Tr key={item.id}>
-      <Table.Td style={{ fontWeight: 500 }}>{item.name} {isScrapped && <Badge color="red" size="xs" ml="xs">SCRAPPED</Badge>}</Table.Td>
-      <Table.Td>{item.serial_number}</Table.Td>
-      <Table.Td><Badge variant="outline">{item.category}</Badge></Table.Td>
-      <Table.Td>{item.department}</Table.Td>
-      <Table.Td>
-        <ActionIcon variant="light" onClick={() => handleViewDetails(item)}>
-          <IconEye size="1rem" />
-        </ActionIcon>
-      </Table.Td>
-    </Table.Tr>
-  ));
+  const rows = equipment.map((item) => {
+    // --- SCRAP LOGIC VISUALS ---
+    // If is_active is false (0), the machine is Scrapped.
+    const isScrapped = !item.is_active; 
+
+    return (
+      <Table.Tr 
+        key={item.id} 
+        style={{ 
+            opacity: isScrapped ? 0.6 : 1, 
+            backgroundColor: isScrapped ? '#fff5f5' : undefined 
+        }}
+      >
+        <Table.Td style={{ fontWeight: 500 }}>
+          {item.name}
+          {isScrapped && <Badge color="red" size="xs" ml="xs">SCRAPPED</Badge>}
+        </Table.Td>
+        <Table.Td>{item.serial_number}</Table.Td>
+        <Table.Td><Badge variant="outline">{item.category}</Badge></Table.Td>
+        <Table.Td>{item.department}</Table.Td>
+        <Table.Td>
+          <ActionIcon variant="light" onClick={() => handleViewDetails(item)}>
+            <IconEye size="1rem" />
+          </ActionIcon>
+        </Table.Td>
+      </Table.Tr>
+    );
+  });
 
   return (
     <div>
@@ -76,7 +90,7 @@ export function EquipmentList() {
       >
         {selectedItem && (
           <Stack gap="lg">
-            {/* --- THE SMART BUTTON --- */}
+            {/* --- THE SMART BUTTON  --- */}
             <Button 
               fullWidth 
               size="lg" 
@@ -93,6 +107,10 @@ export function EquipmentList() {
               Maintenance Requests
             </Button>
             {/* ------------------------- */}
+
+            {!selectedItem.is_active && (
+                <Badge color="red" size="xl" fullWidth>⚠️ EQUIPMENT SCRAPPED</Badge>
+            )}
 
             <Grid>
               <Grid.Col span={6}>

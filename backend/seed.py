@@ -3,13 +3,13 @@ from .database import SessionLocal, engine
 from . import models
 from datetime import datetime, timedelta
 
-
+# Create tables
 models.Base.metadata.create_all(bind=engine)
 
 def seed_data():
     db = SessionLocal()
-    
 
+    # Check if data exists
     if db.query(models.MaintenanceTeam).first():
         print("Data already exists. Skipping seed.")
         return
@@ -52,17 +52,23 @@ def seed_data():
     db.commit()
     
     print("Seeding Initial Requests...")
+    # Request 1: High Priority (3 Stars)
     req1 = models.MaintenanceRequest(
         subject="Leaking Oil", request_type=models.RequestType.CORRECTIVE,
         equipment_id=eq1.id, assigned_team_id=team_mech.id,
-        stage=models.RequestStage.NEW
+        stage=models.RequestStage.NEW,
+        priority=3 # <--- HIGH PRIORITY
     )
+    
+    # Request 2: Medium Priority (2 Stars)
     req2 = models.MaintenanceRequest(
         subject="Monthly Checkup", request_type=models.RequestType.PREVENTIVE,
         equipment_id=eq3.id, assigned_team_id=team_elec.id,
         stage=models.RequestStage.NEW,
-        scheduled_date=datetime.now() + timedelta(days=5) 
+        scheduled_date=datetime.now() + timedelta(days=5),
+        priority=2 # <--- MEDIUM PRIORITY
     )
+
     db.add_all([req1, req2])
     db.commit()
 

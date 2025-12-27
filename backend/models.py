@@ -39,7 +39,7 @@ class Equipment(Base):
     location = Column(String)
     purchase_date = Column(DateTime, default=datetime.utcnow)
     warranty_expiration = Column(DateTime)
-    is_active = Column(Boolean, default=True) # Postgres handles Boolean natively
+    is_active = Column(Boolean, default=True)
     
     maintenance_team_id = Column(Integer, ForeignKey("teams.id"))
     technician_id = Column(Integer, ForeignKey("users.id"))
@@ -53,6 +53,9 @@ class MaintenanceRequest(Base):
     subject = Column(String)
     request_type = Column(Enum(RequestType))
     stage = Column(Enum(RequestStage), default=RequestStage.NEW)
+    
+    # NEW FIELD: Priority (1-5 stars)
+    priority = Column(Integer, default=1)
     
     scheduled_date = Column(DateTime, nullable=True)
     duration_hours = Column(Float, default=0.0)
