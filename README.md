@@ -5,8 +5,8 @@
 
 > **Streamline operations, maximize uptime, and manage your industrial workforce with intelligence.**
 
-![Project Banner](https://via.placeholder.com/1200x400?text=GearGuard+Dashboard+Preview)
-*(Replace this link with a screenshot of your actual Dashboard)*
+![Project Banner](https://drive.google.com/file/d/1kcPv105luXqH29AUU1zZ99dQDsSK4TlX/view?usp=sharing)
+
 
 ## 📖 Overview
 
@@ -53,21 +53,8 @@ Built for the **SWAVLAMBAN 2025 Hackathon**, this solution focuses on tracking c
 - **Database:** PostgreSQL
 - **Validation:** Pydantic
 
----
 
-## 📸 Screenshots
 
-| **Dashboard** | **Kanban Board** |
-|:---:|:---:|
-| ![Dashboard](https://via.placeholder.com/600x300?text=Dashboard+Screenshot) | ![Kanban](https://via.placeholder.com/600x300?text=Kanban+Screenshot) |
-
-| **Equipment Drawer** | **Calendar View** |
-|:---:|:---:|
-| ![Drawer](https://via.placeholder.com/600x300?text=Drawer+Screenshot) | ![Calendar](https://via.placeholder.com/600x300?text=Calendar+Screenshot) |
-
-*(Note: Please update the `src` links above with your actual screenshots located in a `/screenshots` folder)*
-
----
 
 ## ⚡ Installation & Setup
 
