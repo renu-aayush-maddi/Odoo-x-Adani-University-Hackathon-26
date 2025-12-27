@@ -35,6 +35,7 @@ import { EquipmentList } from './components/EquipmentList';
 import { CalendarView } from './components/CalendarView';
 import { Dashboard } from './components/Dashboard';
 import { TeamsList } from './components/TeamsList'; // Import the new page!
+import { WorkCenterList } from './components/WorkCenterList';
 // import { LoginPage } from './components/LoginPage';
 // import { useUser } from './context/UserContext';
 
@@ -53,6 +54,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="calendar" element={<CalendarView />} />
         <Route path="equipment" element={<EquipmentList />} />
+        <Route path="work-centers" element={<WorkCenterList />} />
         <Route path="teams" element={<TeamsList />} /> {/* Connect it here */}
       </Route>
     </Routes>
