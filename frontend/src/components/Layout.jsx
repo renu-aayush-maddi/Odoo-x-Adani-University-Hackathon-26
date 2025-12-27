@@ -3,6 +3,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconTool, IconUsers, IconSettings, IconLayoutKanban,  IconCalendar } from '@tabler/icons-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { IconChartBar } from '@tabler/icons-react';
+import { IconBuildingFactory2 } from '@tabler/icons-react';
 
 export function Layout() {
   const [opened, { toggle }] = useDisclosure();
@@ -14,6 +15,7 @@ export function Layout() {
     { label: 'Maintenance Board', icon: IconLayoutKanban, link: '/' },
     { label: 'Calendar', icon: IconCalendar, link: '/calendar' },
     { label: 'Equipment', icon: IconTool, link: '/equipment' },
+    { label: 'Work Centers', icon: IconBuildingFactory2, link: '/work-centers' },
     { label: 'Teams', icon: IconUsers, link: '/teams' },
   ];
 
