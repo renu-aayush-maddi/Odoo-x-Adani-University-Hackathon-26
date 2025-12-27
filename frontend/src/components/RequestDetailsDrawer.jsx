@@ -1,17 +1,13 @@
-
-
 import { useState, useEffect } from 'react';
-import { Drawer, Title, Group, Text, Stack, Grid, Button, Tabs, Radio, Rating, Avatar, Textarea, Modal } from '@mantine/core';
-import { IconPencil, IconFileDescription, IconDeviceFloppy } from '@tabler/icons-react';
+import { Drawer, Title, Group, Text, Stack, Grid, Button, Tabs, Radio, Rating, Avatar, Textarea, Modal, Menu, ActionIcon } from '@mantine/core';
+import { IconPencil, IconFileDescription, IconDeviceFloppy, IconCircleFilled } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../api';
 import dayjs from 'dayjs';
 
-export function RequestDetailsDrawer({ opened, onClose, request }) {
-  // If no request is selected, return nothing
+export function RequestDetailsDrawer({ opened, onClose, request, onUpdate }) {
   if (!request) return null;
 
-  // --- LOCAL STATE ---
   const [isEditing, setIsEditing] = useState(false);
   const [worksheetOpen, setWorksheetOpen] = useState(false);
   
@@ -21,8 +17,8 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
   const [worksheetLog, setWorksheetLog] = useState("");
   const [currentStage, setCurrentStage] = useState("");
   const [priority, setPriority] = useState(1);
+  const [kanbanState, setKanbanState] = useState("normal");
 
-  // Sync state when the request prop changes
   useEffect(() => {
     if (request) {
         setNotes(request.notes || "");
@@ -30,44 +26,56 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
         setWorksheetLog(request.worksheet_log || "");
         setCurrentStage(request.stage);
         setPriority(request.priority || 1);
+        setKanbanState(request.kanban_state || "normal");
     }
   }, [request]);
 
-  // --- SAVE HANDLER ---
   const handleSave = async () => {
     try {
         await api.put(`/requests/${request.id}/stage`, {
-            notes: notes,
-            instructions: instructions,
-            priority: priority,
+            notes, instructions, priority, kanban_state: kanbanState 
         });
         notifications.show({ title: 'Saved', message: 'Request updated successfully', color: 'green' });
         setIsEditing(false);
+        if (onUpdate) onUpdate();
     } catch (error) {
         notifications.show({ title: 'Error', message: 'Failed to save changes', color: 'red' });
     }
   };
 
   const toggleEdit = () => {
-    if (isEditing) {
-        handleSave(); // Save if currently editing
-    } else {
-        setIsEditing(true); // Enter edit mode
-    }
+    if (isEditing) handleSave();
+    else setIsEditing(true);
   };
 
-  // --- STAGE CHANGE HANDLER ---
   const handleStageClick = async (newStage) => {
     try {
         await api.put(`/requests/${request.id}/stage`, { stage: newStage });
-        setCurrentStage(newStage); // Update UI immediately
+        setCurrentStage(newStage); 
+        if (onUpdate) onUpdate(); 
         notifications.show({ title: 'Status Updated', message: `Moved to ${newStage}`, color: 'blue' });
     } catch (error) {
         notifications.show({ title: 'Error', message: 'Failed to update status', color: 'red' });
     }
   };
 
-  // --- WORKSHEET SAVE HANDLER ---
+  const handleKanbanStateChange = async (newState) => {
+      try {
+          await api.put(`/requests/${request.id}/stage`, { kanban_state: newState });
+          setKanbanState(newState);
+          if (onUpdate) onUpdate(); 
+      } catch (error) {
+          console.error(error);
+          notifications.show({ title: 'Error', message: 'Failed to update kanban state', color: 'red' });
+      }
+  };
+
+  const getKanbanColor = (state) => {
+      if (state === 'blocked') return 'red';
+      if (state === 'done') return 'green';
+      return 'gray'; 
+  };
+
   const saveWorksheet = async () => {
       try {
           await api.put(`/requests/${request.id}/stage`, { worksheet_log: worksheetLog });
@@ -78,19 +86,16 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
       }
   };
 
-  // Pipeline Component
   const PipelineStage = ({ label, active, completed }) => {
     let color = '#e9ecef'; 
     let textColor = '#adb5bd';
-    let cursor = 'pointer'; 
-
     if (active) { color = '#228be6'; textColor = 'white'; } 
     if (completed) { color = '#e7f5ff'; textColor = '#228be6'; } 
 
     return (
       <div 
         onClick={() => handleStageClick(label)}
-        style={{ padding: '4px 12px', backgroundColor: color, borderRadius: '4px', cursor }}
+        style={{ padding: '4px 12px', backgroundColor: color, borderRadius: '4px', cursor: 'pointer' }}
       >
         <Text size="xs" fw={700} c={textColor} style={{ whiteSpace: 'nowrap' }}>{label}</Text>
       </div>
@@ -102,6 +107,15 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
 
   return (
     <>
+      {/* 1. ADDED: CSS Animation for Blinking */}
+      <style>{`
+        @keyframes blink {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+
       <Drawer 
         opened={opened} 
         onClose={() => { setIsEditing(false); onClose(); }} 
@@ -115,16 +129,16 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
           {/* HEADER */}
           <Group justify="space-between" align="center">
               <Group>
-                   <Button 
+                    <Button 
                       variant="outline" 
                       color={isEditing ? "green" : "gray"} 
                       size="xs"
                       leftSection={isEditing ? <IconDeviceFloppy size={14}/> : <IconPencil size={14}/>}
                       onClick={toggleEdit}
-                   >
+                    >
                       {isEditing ? "Save" : "Edit"}
-                   </Button>
-                   <Button variant="outline" color="gray" size="xs">Create Report</Button>
+                    </Button>
+                    <Button variant="outline" color="gray" size="xs">Create Report</Button>
               </Group>
 
               <Group>
@@ -147,13 +161,48 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
                           />
                       ))}
                   </Group>
+
+                  {/* TRAFFIC LIGHT STATUS INDICATOR */}
+                  <Menu shadow="md" width={200}>
+                      <Menu.Target>
+                          <ActionIcon variant="transparent">
+                              {/* 2. ADDED: Animation Style */}
+                              <IconCircleFilled 
+                                size={20} 
+                                color={getKanbanColor(kanbanState)} 
+                                style={{ animation: 'blink 1s infinite ease-in-out' }}
+                              />
+                          </ActionIcon>
+                      </Menu.Target>
+
+                      <Menu.Dropdown>
+                          <Menu.Item 
+                            leftSection={<IconCircleFilled size={14} color="gray"/>}
+                            onClick={() => handleKanbanStateChange('normal')}
+                          >
+                              In Progress (Normal)
+                          </Menu.Item>
+                          <Menu.Item 
+                            leftSection={<IconCircleFilled size={14} color="red"/>}
+                            onClick={() => handleKanbanStateChange('blocked')}
+                          >
+                              Blocked
+                          </Menu.Item>
+                          <Menu.Item 
+                            leftSection={<IconCircleFilled size={14} color="green"/>}
+                            onClick={() => handleKanbanStateChange('done')}
+                          >
+                              Ready for next stage
+                          </Menu.Item>
+                      </Menu.Dropdown>
+                  </Menu>
+
               </Group>
           </Group>
 
           <div style={{ borderBottom: '1px solid #eee' }} />
           <Title order={1}>{request.subject}</Title>
 
-          {/* FORM GRID - ALL FIELDS RESTORED */}
           <Grid gutter={40}>
               <Grid.Col span={6}>
                   <Stack gap="md">
@@ -164,7 +213,6 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
                           </Text>
                       </Group>
 
-                      {/* RESTORED: Maintenance For / Equipment / Category / Date / Type */}
                       <Group grow>
                            <Text size="sm" fw={500} w={120}>{request.work_center ? 'Work Center' : 'Equipment'}</Text>
                            <Text size="sm" fw={700} c="blue">
@@ -202,7 +250,7 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
               </Grid.Col>
 
               <Grid.Col span={6}>
-                   <Stack gap="md">
+                    <Stack gap="md">
                       <Group grow>
                           <Text size="sm" fw={500} w={100}>Team</Text>
                           <Text size="sm" style={{ borderBottom: '1px solid #eee' }}>
@@ -236,11 +284,10 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
                             My Company (San Francisco)
                         </Text>
                       </Group>
-                   </Stack>
+                    </Stack>
               </Grid.Col>
           </Grid>
 
-          {/* TABS */}
           <Tabs defaultValue="notes" mt="xl">
               <Tabs.List>
                   <Tabs.Tab value="notes">Notes</Tabs.Tab>
@@ -270,7 +317,6 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
         </Stack>
       </Drawer>
 
-      {/* WORKSHEET MODAL */}
       <Modal 
         opened={worksheetOpen} 
         onClose={() => setWorksheetOpen(false)} 
@@ -293,184 +339,3 @@ export function RequestDetailsDrawer({ opened, onClose, request }) {
     </>
   );
 }
-
-
-
-
-
-// import { useState, useEffect } from 'react';
-// import { Drawer, Title, Group, Text, Stack, Grid, Button, Tabs, Radio, Rating, Avatar, Textarea, Modal, Menu, ActionIcon } from '@mantine/core'; 
-// import { IconPencil, IconFileDescription, IconDeviceFloppy, IconCircleFilled } from '@tabler/icons-react';
-// import { notifications } from '@mantine/notifications';
-// import { api } from '../api';
-// import dayjs from 'dayjs';
-
-// export function RequestDetailsDrawer({ opened, onClose, request, onUpdate }) {
-//   if (!request) return null;
-
-//   const [isEditing, setIsEditing] = useState(false);
-//   const [worksheetOpen, setWorksheetOpen] = useState(false);
-  
-//   // Form State
-//   const [notes, setNotes] = useState("");
-//   const [instructions, setInstructions] = useState("");
-//   const [worksheetLog, setWorksheetLog] = useState("");
-//   const [currentStage, setCurrentStage] = useState("");
-//   const [priority, setPriority] = useState(1);
-//   const [kanbanState, setKanbanState] = useState("normal"); // <--- NEW STATE
-
-//   useEffect(() => {
-//     if (request) {
-//         setNotes(request.notes || "");
-//         setInstructions(request.instructions || "Standard safety protocols apply.");
-//         setWorksheetLog(request.worksheet_log || "");
-//         setCurrentStage(request.stage);
-//         setPriority(request.priority || 1);
-//         setKanbanState(request.kanban_state || "normal"); // <--- Load State
-//     }
-//   }, [request]);
-
-//   const handleSave = async () => {
-//     try {
-//         await api.put(`/requests/${request.id}/stage`, {
-//             notes, instructions, priority, kanban_state: kanbanState 
-//         });
-//         notifications.show({ title: 'Saved', message: 'Request updated', color: 'green' });
-//         setIsEditing(false);
-//         if (onUpdate) onUpdate();
-//     } catch (error) {
-//         notifications.show({ title: 'Error', message: 'Failed to save', color: 'red' });
-//     }
-//   };
-
-//   const toggleEdit = () => isEditing ? handleSave() : setIsEditing(true);
-
-//   // --- TRAFFIC LIGHT HANDLER ---
-//   const handleKanbanStateChange = async (newState) => {
-//       try {
-//           await api.put(`/requests/${request.id}/stage`, { kanban_state: newState });
-//           setKanbanState(newState);
-//           if (onUpdate) onUpdate(); // Refresh dashboard so dot updates there too if needed
-//       } catch (error) {
-//           console.error(error);
-//       }
-//   };
-
-//   const getKanbanColor = (state) => {
-//       if (state === 'blocked') return 'red';
-//       if (state === 'done') return 'green';
-//       return 'gray'; // normal
-//   };
-
-//   // Pipeline Component
-//   const PipelineStage = ({ label, active, completed }) => {
-//     let color = '#e9ecef'; 
-//     let textColor = '#adb5bd';
-//     let cursor = 'pointer';
-
-//     if (active) { color = '#228be6'; textColor = 'white'; } 
-//     if (completed) { color = '#e7f5ff'; textColor = '#228be6'; } 
-
-//     return (
-//       <div 
-//         onClick={() => { /* Add your stage click logic here from previous steps */ }}
-//         style={{ padding: '4px 12px', backgroundColor: color, borderRadius: '4px', cursor }}
-//       >
-//         <Text size="xs" fw={700} c={textColor} style={{ whiteSpace: 'nowrap' }}>{label}</Text>
-//       </div>
-//     );
-//   };
-
-//   const stages = ['New', 'In Progress', 'Repaired', 'Scrap'];
-//   const currentStageIndex = stages.indexOf(currentStage);
-
-//   return (
-//     <>
-//       <Drawer 
-//         opened={opened} 
-//         onClose={() => { setIsEditing(false); onClose(); }} 
-//         position="right" 
-//         size="80%" 
-//         padding="xl"
-//         title={<Text fw={500} c="dimmed">Maintenance Requests / {request.subject}</Text>}
-//       >
-//         <Stack gap="lg">
-//           {/* HEADER */}
-//           <Group justify="space-between" align="center">
-//               <Group>
-//                    <Button 
-//                       variant="outline" 
-//                       color={isEditing ? "green" : "gray"} 
-//                       size="xs"
-//                       leftSection={isEditing ? <IconDeviceFloppy size={14}/> : <IconPencil size={14}/>}
-//                       onClick={toggleEdit}
-//                    >
-//                       {isEditing ? "Save" : "Edit"}
-//                    </Button>
-//                    <Button variant="outline" color="gray" size="xs">Create Report</Button>
-//               </Group>
-
-//               <Group>
-//                   <Button 
-//                       variant="default" 
-//                       leftSection={<IconFileDescription size={16} color="#7950f2"/>}
-//                       onClick={() => setWorksheetOpen(true)}
-//                   >
-//                       Worksheet
-//                   </Button>
-
-//                   <Group gap={5} style={{ border: '1px solid #eee', padding: 5, borderRadius: 8 }}>
-//                       {stages.map((s, index) => (
-//                           <PipelineStage 
-//                               key={s} 
-//                               label={s} 
-//                               active={s === currentStage} 
-//                               completed={index < currentStageIndex}
-//                           />
-//                       ))}
-//                   </Group>
-
-//                   {/* --- TRAFFIC LIGHT MENU --- */}
-//                   <Menu shadow="md" width={200}>
-//                       <Menu.Target>
-//                           <ActionIcon variant="transparent">
-//                               <IconCircleFilled size={24} color={getKanbanColor(kanbanState)} />
-//                           </ActionIcon>
-//                       </Menu.Target>
-
-//                       <Menu.Dropdown>
-//                           <Menu.Item 
-//                             leftSection={<IconCircleFilled size={14} color="gray"/>}
-//                             onClick={() => handleKanbanStateChange('normal')}
-//                           >
-//                               In Progress
-//                           </Menu.Item>
-//                           <Menu.Item 
-//                             leftSection={<IconCircleFilled size={14} color="red"/>}
-//                             onClick={() => handleKanbanStateChange('blocked')}
-//                           >
-//                               Blocked
-//                           </Menu.Item>
-//                           <Menu.Item 
-//                             leftSection={<IconCircleFilled size={14} color="green"/>}
-//                             onClick={() => handleKanbanStateChange('done')}
-//                           >
-//                               Ready for next stage
-//                           </Menu.Item>
-//                       </Menu.Dropdown>
-//                   </Menu>
-//                   {/* ------------------------- */}
-//               </Group>
-//           </Group>
-
-//           <div style={{ borderBottom: '1px solid #eee' }} />
-//           <Title order={1}>{request.subject}</Title>
-          
-//           {/* ... (Keep the rest of your form Grid/Tabs here) ... */}
-          
-//         </Stack>
-//       </Drawer>
-//       {/* ... (Keep Worksheet Modal) ... */}
-//     </>
-//   );
-// }
