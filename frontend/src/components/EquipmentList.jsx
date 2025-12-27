@@ -33,10 +33,11 @@ export function EquipmentList() {
   const navigateToMaintenance = () => {
     navigate(`/?equipmentId=${selectedItem.id}`);
   };
+  const isScrapped = !item.is_active;
 
   const rows = equipment.map((item) => (
     <Table.Tr key={item.id}>
-      <Table.Td style={{ fontWeight: 500 }}>{item.name}</Table.Td>
+      <Table.Td style={{ fontWeight: 500 }}>{item.name} {isScrapped && <Badge color="red" size="xs" ml="xs">SCRAPPED</Badge>}</Table.Td>
       <Table.Td>{item.serial_number}</Table.Td>
       <Table.Td><Badge variant="outline">{item.category}</Badge></Table.Td>
       <Table.Td>{item.department}</Table.Td>

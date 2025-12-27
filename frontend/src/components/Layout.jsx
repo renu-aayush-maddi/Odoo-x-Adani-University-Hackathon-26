@@ -2,6 +2,7 @@ import { AppShell, Burger, Group, NavLink, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconTool, IconUsers, IconSettings, IconLayoutKanban,  IconCalendar } from '@tabler/icons-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { IconChartBar } from '@tabler/icons-react';
 
 export function Layout() {
   const [opened, { toggle }] = useDisclosure();
@@ -9,6 +10,7 @@ export function Layout() {
   const location = useLocation();
 
   const links = [
+    { label: 'Dashboard', icon: IconChartBar, link: '/dashboard' },
     { label: 'Maintenance Board', icon: IconLayoutKanban, link: '/' },
     { label: 'Calendar', icon: IconCalendar, link: '/calendar' },
     { label: 'Equipment', icon: IconTool, link: '/equipment' },
